@@ -10,6 +10,15 @@ m-body {
   }
 
   &.has-v2-navbar {
-    margin-top: 52px;
+    margin-top: 51px;
+  }
+
+  &.has-v3-navbar {
+    margin-top: 75px;
+  }
+
+  &.is-pro-domain {
+    margin-top: 0;
+    padding-bottom: 0;
   }
 }

@@ -43,11 +43,15 @@ import { TooltipComponent } from '../../../common/components/tooltip/tooltip.com
 import { AddressExcerptPipe } from '../../../common/pipes/address-excerpt';
 import { TokenPipe } from '../../../common/pipes/token.pipe';
 import { Session } from '../../../services/session';
+import { Storage } from '../../../services/storage';
 import { sessionMock } from '../../../../tests/session-mock.spec';
 import { web3WalletServiceMock } from '../../../../tests/web3-wallet-service-mock.spec';
 import { IfFeatureDirective } from '../../../common/directives/if-feature.directive';
 import { FeaturesService } from '../../../services/features.service';
-import { MockComponent } from '../../../utils/mock';
+import { featuresServiceMock } from '../../../../tests/features-service-mock.spec';
+import { MockComponent, MockService } from '../../../utils/mock';
+import { storageMock } from '../../../../tests/storage-mock.spec';
+import { ConfigsService } from '../../../common/services/configs.service';
 
 /* tslint:disable */
 @Component({
@@ -215,11 +219,12 @@ describe('WireCreatorComponent', () => {
       imports: [FormsModule, RouterTestingModule],
       providers: [
         { provide: Session, useValue: sessionMock },
+        { provide: Storage, useValue: storageMock },
         { provide: Client, useValue: clientMock },
         { provide: WireContractService, useValue: wireContractServiceMock },
         { provide: WireService, useValue: wireServiceMock },
         Web3WalletService,
-        FeaturesService,
+        { provide: FeaturesService, useValue: featuresServiceMock },
         { provide: Web3WalletService, useValue: web3WalletServiceMock },
         { provide: OverlayModalService, useValue: overlayModalServiceMock },
         { provide: TokenContractService, useValue: tokenContractServiceMock },
@@ -227,6 +232,10 @@ describe('WireCreatorComponent', () => {
         {
           provide: TransactionOverlayService,
           useValue: transactionOverlayServiceMock,
+        },
+        {
+          provide: ConfigsService,
+          useValue: MockService(ConfigsService),
         },
       ],
     }).compileComponents(); // compile template and css
@@ -238,7 +247,7 @@ describe('WireCreatorComponent', () => {
     jasmine.clock().uninstall();
     jasmine.clock().install();
     fixture = TestBed.createComponent(WireCreatorComponent);
-
+    featuresServiceMock.mock('wire-multi-currency', true);
     comp = fixture.componentInstance; // LoginForm test instance
     clientMock.response = {};
     clientMock.response[`api/v2/boost/rates`] = {
@@ -511,7 +520,7 @@ describe('WireCreatorComponent', () => {
     comp.setPayloadType('offchain');
     fixture.detectChanges();
 
-    expect(comp.wire.recurring).toBe(true);
+    expect(comp.wire.recurring).toBe(false);
     const checkbox: DebugElement = getRecurringCheckbox();
 
     checkbox.nativeElement.click();
@@ -520,7 +529,7 @@ describe('WireCreatorComponent', () => {
     fixture.detectChanges();
 
     expect(checkbox).not.toBeNull();
-    expect(comp.wire.recurring).toBe(false);
+    expect(comp.wire.recurring).toBe(true);
   });
 
   it('should show creator tiers', () => {
@@ -635,6 +644,7 @@ describe('WireCreatorComponent', () => {
       payload: { receiver: '0x1234', address: '' },
       payloadType: 'onchain',
       recurring: false,
+      recurringInterval: 'monthly',
     });
   }));
 

@@ -1,9 +1,18 @@
-import { Component, ElementRef, ViewChild } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  Input,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+  Injector,
+  SkipSelf,
+} from '@angular/core';
 import { Router } from '@angular/router';
 
 import { Client } from '../../../services/api';
 import { Session } from '../../../services/session';
-import { MindsTitle } from '../../../services/ux/title';
 import { ScrollService } from '../../../services/ux/scroll';
 import { AnalyticsService } from '../../../services/analytics';
 import { MindsBlogEntity } from '../../../interfaces/entities';
@@ -12,19 +21,24 @@ import { AttachmentService } from '../../../services/attachment';
 import { ContextService } from '../../../services/context.service';
 import { optimizedResize } from '../../../utils/optimized-resize';
 import { OverlayModalService } from '../../../services/ux/overlay-modal';
+import { ActivityService } from '../../../common/services/activity.service';
 import { ShareModalComponent } from '../../../modules/modals/share/share';
+import { ClientMetaService } from '../../../common/services/client-meta.service';
+import { MetaService } from '../../../common/services/meta.service';
+import { ConfigsService } from '../../../common/services/configs.service';
 
 @Component({
-  moduleId: module.id,
   selector: 'm-blog-view',
-  inputs: ['_blog: blog', '_index: index'],
   host: {
     class: 'm-blog',
   },
   templateUrl: 'view.html',
+  providers: [ActivityService, ClientMetaService],
 })
-export class BlogView {
-  minds;
+export class BlogView implements OnInit, OnDestroy {
+  readonly cdnUrl: string;
+  readonly siteUrl: string;
+
   guid: string;
   blog: MindsBlogEntity;
   // sharetoggle: boolean = false;
@@ -50,7 +64,29 @@ export class BlogView {
     'set-explicit',
     'remove-explicit',
     'rating',
+    'allow-comments',
   ];
+
+  @Input() showActions: boolean = true;
+  @Input() showComments: boolean = true;
+
+  @Input('blog') set _blog(value: MindsBlogEntity) {
+    this.blog = value;
+    setTimeout(() => {
+      this.calculateLockScreenHeight();
+    });
+  }
+
+  @Input('index') set _index(value: number) {
+    this.index = value;
+    if (this.index === 0) {
+      this.visible = true;
+    }
+  }
+
+  set data(value: any) {
+    this.blog = value;
+  }
 
   @ViewChild('lockScreen', { read: ElementRef, static: false }) lockScreen;
 
@@ -60,14 +96,25 @@ export class BlogView {
     public router: Router,
     _element: ElementRef,
     public scroll: ScrollService,
-    public title: MindsTitle,
+    public metaService: MetaService,
     public attachment: AttachmentService,
     private context: ContextService,
     public analytics: AnalyticsService,
     public analyticsService: AnalyticsService,
-    private overlayModal: OverlayModalService
+    protected activityService: ActivityService,
+    private cd: ChangeDetectorRef,
+    private overlayModal: OverlayModalService,
+    private clientMetaService: ClientMetaService,
+    @SkipSelf() injector: Injector,
+    configs: ConfigsService
   ) {
-    this.minds = window.Minds;
+    this.clientMetaService
+      .inherit(injector)
+      .setSource('single')
+      .setMedium('single');
+
+    this.cdnUrl = configs.get('cdn_url');
+    this.siteUrl = configs.get('site_url');
     this.element = _element.nativeElement;
     optimizedResize.add(this.onResize.bind(this));
   }
@@ -75,10 +122,11 @@ export class BlogView {
   ngOnInit() {
     this.isVisible();
     this.context.set('object:blog');
+    this.clientMetaService.recordView(this.blog);
   }
 
   isVisible() {
-    //listens every 0.6 seconds
+    // listens every 0.6 seconds
     this.scroll_listener = this.scroll.listen(
       e => {
         const bounds = this.element.getBoundingClientRect();
@@ -86,15 +134,15 @@ export class BlogView {
           bounds.top < this.scroll.view.clientHeight &&
           bounds.top + bounds.height > this.scroll.view.clientHeight
         ) {
-          let url = `${this.minds.site_url}blog/view/${this.blog.guid}`;
+          let url = `${this.siteUrl}blog/view/${this.blog.guid}`;
 
           if (this.blog.route) {
-            url = `${this.minds.site_url}${this.blog.route}`;
+            url = `${this.siteUrl}${this.blog.route}`;
           }
 
           if (!this.visible) {
             window.history.pushState(null, this.blog.title, url);
-            this.title.setTitle(this.blog.title);
+            this.updateMeta();
             this.analyticsService.send('pageview', {
               url: `/blog/view/${this.blog.guid}`,
             });
@@ -109,20 +157,6 @@ export class BlogView {
     );
   }
 
-  set _blog(value: MindsBlogEntity) {
-    this.blog = value;
-    setTimeout(() => {
-      this.calculateLockScreenHeight();
-    });
-  }
-
-  set _index(value: number) {
-    this.index = value;
-    if (this.index === 0) {
-      this.visible = true;
-    }
-  }
-
   delete() {
     this.client
       .delete('api/v1/blog/' + this.blog.guid)
@@ -132,7 +166,9 @@ export class BlogView {
   }
 
   ngOnDestroy() {
-    if (this.scroll_listener) this.scroll.unListen(this.scroll_listener);
+    if (this.scroll_listener) {
+      this.scroll.unListen(this.scroll_listener);
+    }
   }
 
   menuOptionSelected(option: string) {
@@ -165,7 +201,9 @@ export class BlogView {
   }
 
   calculateLockScreenHeight() {
-    if (!this.lockScreen) return;
+    if (!this.lockScreen) {
+      return;
+    }
     const lockScreenOverlay = this.lockScreen.nativeElement.querySelector(
       '.m-wire--lock-screen'
     );
@@ -178,7 +216,7 @@ export class BlogView {
 
   openShareModal() {
     const url: string =
-      this.minds.site_url +
+      this.siteUrl +
       (this.blog.route ? this.blog.route : 'blog/view/' + this.blog.guid);
 
     this.overlayModal
@@ -188,11 +226,28 @@ export class BlogView {
       .present();
   }
 
+  isScheduled(time_created) {
+    return time_created && time_created * 1000 > Date.now();
+  }
+
   /**
    * called when the window resizes
    * @param {Event} event
    */
   onResize(event: Event) {
     this.calculateLockScreenHeight();
+  }
+
+  private updateMeta(): void {
+    const description =
+      this.blog.description.length > 140
+        ? this.blog.description.substr(0, 140) + '...'
+        : this.blog.description;
+    this.metaService
+      .setTitle(this.blog.custom_meta['title'] || this.blog.title)
+      .setDescription(description)
+      //.setAuthor(this.blog.custom_meta['author'] || `@${this.blog.ownerObj.username}`)
+      .setOgUrl(this.blog.perma_url)
+      .setOgImage(this.blog.thumbnail);
   }
 }

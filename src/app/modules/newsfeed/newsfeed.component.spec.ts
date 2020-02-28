@@ -16,12 +16,9 @@ import { of } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Storage } from '../../services/storage';
 import { storageMock } from '../../../tests/storage-mock.spec';
-import { MindsTitle } from '../../services/ux/title';
 import { Navigation } from '../../services/navigation';
 import { navigationMock } from '../../../tests/navigation-service-mock.spec';
-import { mindsTitleMock } from '../../mocks/services/ux/minds-title.service.mock.spec';
 import { MockComponent, MockDirective } from '../../utils/mock';
-
 import { overlayModalServiceMock } from '../../../tests/overlay-modal-service-mock.spec';
 import { OverlayModalService } from '../../services/ux/overlay-modal';
 import { NewsfeedService } from './services/newsfeed.service';
@@ -32,6 +29,8 @@ import { featuresServiceMock } from '../../../tests/features-service-mock.spec';
 import { NewsfeedHashtagSelectorService } from './services/newsfeed-hashtag-selector.service';
 import { newsfeedHashtagSelectorServiceMock } from '../../../tests/newsfeed-hashtag-selector-service-mock.spec';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
+import { PagesService } from '../../common/services/pages.service';
+import { pagesServiceMock } from '../../mocks/services/pages-mock.spec';
 
 describe('NewsfeedComponent', () => {
   let comp: NewsfeedComponent;
@@ -96,7 +95,6 @@ describe('NewsfeedComponent', () => {
           },
         },
         { provide: Storage, useValue: storageMock },
-        { provide: MindsTitle, useValue: mindsTitleMock },
         { provide: Navigation, useValue: navigationMock },
         { provide: OverlayModalService, useValue: overlayModalServiceMock },
         { provide: NewsfeedService, useValue: newsfeedServiceMock },
@@ -105,6 +103,7 @@ describe('NewsfeedComponent', () => {
           useValue: newsfeedHashtagSelectorServiceMock,
         },
         { provide: FeaturesService, useValue: featuresServiceMock },
+        { provide: PagesService, useValue: pagesServiceMock },
       ],
       schemas: [NO_ERRORS_SCHEMA],
     }).compileComponents(); // compile template and css
@@ -122,6 +121,8 @@ describe('NewsfeedComponent', () => {
     clientMock.response = {};
     featuresServiceMock.mock('top-feeds', false);
     featuresServiceMock.mock('suggested-users', false);
+    featuresServiceMock.mock('pro', false);
+    featuresServiceMock.mock('navigation', false);
 
     sessionMock.user.admin = false;
     sessionMock.loggedIn = true;
@@ -334,6 +335,6 @@ describe('NewsfeedComponent', () => {
       By.css('.m-newsfeed-footer .copyright')
     );
     expect(copyright).not.toBeNull();
-    expect(copyright.nativeElement.textContent).toContain('© Minds 2019');
+    expect(copyright.nativeElement.textContent).toContain('© Minds 2020');
   });
 });

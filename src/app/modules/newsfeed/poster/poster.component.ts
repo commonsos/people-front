@@ -14,10 +14,12 @@ import { HashtagsSelectorComponent } from '../../hashtags/selector/selector.comp
 import { Tag } from '../../hashtags/types/tag';
 import autobind from '../../../helpers/autobind';
 import { Subject, Subscription } from 'rxjs';
-import { debounceTime } from 'rxjs/operators';
+import { debounceTime, map } from 'rxjs/operators';
 import { Router } from '@angular/router';
 import { InMemoryStorageService } from '../../../services/in-memory-storage.service';
 import { AutocompleteSuggestionsService } from '../../suggestions/services/autocomplete-suggestions.service';
+import { NSFWSelectorComponent } from '../../../common/components/nsfw-selector/nsfw-selector.component';
+import { TagsService } from '../../../common/services/tags.service';
 
 @Component({
   moduleId: module.id,
@@ -32,9 +34,9 @@ export class PosterComponent {
   meta: any = {
     message: '',
     wire_threshold: null,
+    time_created: null,
   };
   tags = [];
-  minds = window.Minds;
   load: EventEmitter<any> = new EventEmitter();
   inProgress: boolean = false;
 
@@ -46,6 +48,9 @@ export class PosterComponent {
 
   @ViewChild('hashtagsSelector', { static: false })
   hashtagsSelector: HashtagsSelectorComponent;
+
+  @ViewChild('nsfwSelector', { static: false })
+  nsfwSelector: NSFWSelectorComponent;
 
   showActionBarLabels: boolean = false;
 
@@ -63,7 +68,8 @@ export class PosterComponent {
     public suggestions: AutocompleteSuggestionsService,
     protected elementRef: ElementRef,
     protected router: Router,
-    protected inMemoryStorageService: InMemoryStorageService
+    protected inMemoryStorageService: InMemoryStorageService,
+    protected tagsService: TagsService
   ) {}
 
   @HostListener('window:resize') _widthDetection() {
@@ -78,6 +84,13 @@ export class PosterComponent {
 
   ngAfterViewInit() {
     this.resizeSubject.next(Date.now());
+
+    try {
+      const nsfw = this.nsfwSelector.service.reasons.filter(r => r.selected);
+      this.setNSFWSelector(nsfw);
+    } catch (e) {
+      return;
+    }
   }
 
   ngOnDestroy() {
@@ -116,16 +129,34 @@ export class PosterComponent {
     }
   }
 
-  onMessageChange($event) {
+  onMessageChange($event: string) {
     this.errorMessage = '';
     this.meta.message = $event;
-
-    const regex = /(^|\s||)#(\w+)/gim;
     this.tags = [];
-    let match;
 
-    while ((match = regex.exec(this.meta.message)) !== null) {
-      this.tags.push(match[2]);
+    let words = $event.split(/\s|^/); // split words on space or newline.
+    for (let word of words) {
+      if (
+        word.match(this.tagsService.getRegex('hash')) &&
+        !word.match(this.tagsService.getRegex('url'))
+      ) {
+        let tags = word
+          .split(/(?=\#)/) // retain # symbol in split.
+          .map(tag => {
+            if (tag[0] === '#') {
+              return tag.split(/\W/).filter(e => e);
+            }
+          })
+          .filter(e => e); // remove null array entries.
+
+        if (tags.length > 1) {
+          for (let tag of tags) {
+            this.tags.push(tag);
+          }
+        } else {
+          this.tags.push(word.split('#')[1]);
+        }
+      }
     }
   }
 
@@ -174,6 +205,9 @@ export class PosterComponent {
       return;
     }
 
+    this.meta.time_created =
+      this.meta.time_created || Math.floor(Date.now() / 1000);
+
     this.errorMessage = '';
 
     let data = Object.assign(this.meta, this.attachment.exportMeta());
@@ -196,8 +230,21 @@ export class PosterComponent {
       });
   }
 
-  uploadAttachment(file: HTMLInputElement, event) {
+  async uploadFile(file: HTMLInputElement, event) {
     if (file.value) {
+      // this prevents IE from executing this code twice
+      try {
+        await this.uploadAttachment(file);
+
+        file.value = null;
+      } catch (e) {
+        file.value = null;
+      }
+    }
+  }
+
+  async uploadAttachment(file: HTMLInputElement | File) {
+    if ((file instanceof HTMLInputElement && file.value) || file) {
       // this prevents IE from executing this code twice
       this.canPost = false;
       this.inProgress = true;
@@ -211,7 +258,9 @@ export class PosterComponent {
           if (this.attachment.isPendingDelete()) {
             this.removeAttachment(file);
           }
-          file.value = null;
+          if (file instanceof HTMLInputElement) {
+            file.value = '';
+          }
         })
         .catch(e => {
           if (e && e.message) {
@@ -219,7 +268,9 @@ export class PosterComponent {
           }
           this.inProgress = false;
           this.canPost = true;
-          file.value = null;
+          if (file instanceof HTMLInputElement) {
+            file.value = '';
+          }
           this.attachment.reset();
         });
     }
@@ -229,9 +280,9 @@ export class PosterComponent {
     this.attachment.reset();
   }
 
-  removeAttachment(file: HTMLInputElement) {
+  removeAttachment(file: HTMLInputElement | File) {
+    this.attachment.abort();
     if (this.inProgress) {
-      this.attachment.abort();
       this.canPost = true;
       this.inProgress = false;
       this.errorMessage = '';
@@ -245,11 +296,13 @@ export class PosterComponent {
     this.errorMessage = '';
 
     this.attachment
-      .remove(file)
+      .remove()
       .then(() => {
         this.inProgress = false;
         this.canPost = true;
-        file.value = '';
+        if (file instanceof HTMLInputElement) {
+          file.value = '';
+        }
       })
       .catch(e => {
         console.error(e);
@@ -284,5 +337,26 @@ export class PosterComponent {
 
   onNSWFSelections(reasons: Array<{ value; label; selected }>) {
     this.attachment.setNSFW(reasons);
+  }
+
+  onTimeCreatedChange(newDate) {
+    this.meta.time_created = newDate;
+  }
+
+  posterDateSelectorError(msg) {
+    this.errorMessage = msg;
+  }
+
+  /**
+   * Set the current NSFW state.
+   *
+   * @param { string } nsfw - array of NSFW reasons.
+   */
+  setNSFWSelector(
+    nsfw: Array<{ value: string; label: string; selected: string }> = null
+  ): void {
+    if (nsfw.length > 0) {
+      this.onNSWFSelections(nsfw);
+    }
   }
 }

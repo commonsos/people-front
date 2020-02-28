@@ -8,9 +8,15 @@ import {
   ChangeDetectionStrategy,
   OnChanges,
   Input,
-  ViewChild,
+  Inject,
   ElementRef,
+  PLATFORM_ID,
+  ViewChild,
+  OnInit,
+  OnDestroy,
+  AfterViewInit,
 } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 
 import { Session } from '../../../services/session';
 import { Upload } from '../../../services/api/upload';
@@ -21,13 +27,14 @@ import { OverlayModalService } from '../../../services/ux/overlay-modal';
 import { ReportCreatorComponent } from '../../report/creator/creator.component';
 import { CommentsListComponent } from '../list/list.component';
 import { TimeDiffService } from '../../../services/timediff.service';
-import { Observable } from 'rxjs';
+import { Observable, Subscription } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { ActivityService } from '../../../common/services/activity.service';
 import { Router } from '@angular/router';
 import { FeaturesService } from '../../../services/features.service';
-import { MindsVideoComponent } from '../../media/components/video/video.component';
 import { MediaModalComponent } from '../../media/modal/modal.component';
 import isMobile from '../../../helpers/is-mobile';
+import { ConfigsService } from '../../../common/services/configs.service';
 
 @Component({
   selector: 'm-comment',
@@ -45,10 +52,11 @@ import isMobile from '../../../helpers/is-mobile';
     },
   ],
 })
-export class CommentComponentV2 implements OnChanges {
+export class CommentComponentV2 implements OnChanges, OnInit, AfterViewInit {
   comment: any;
   editing: boolean = false;
-  minds = window.Minds;
+  readonly cdnUrl: string;
+  readonly cdnAssetsUrl: string;
 
   @Input('entity') entity;
   @Input('parent') parent;
@@ -60,6 +68,7 @@ export class CommentComponentV2 implements OnChanges {
   error: string = '';
   @Input() showReplies: boolean = false;
   changesDetected: boolean = false;
+  showMature: boolean = false;
 
   _delete: EventEmitter<any> = new EventEmitter();
   _saved: EventEmitter<any> = new EventEmitter();
@@ -78,8 +87,8 @@ export class CommentComponentV2 implements OnChanges {
   translateToggle: boolean = false;
   commentAge$: Observable<number>;
 
+  canReply = true;
   videoDimensions: Array<any> = null;
-  @ViewChild('player', { static: false }) player: MindsVideoComponent;
   @ViewChild('batchImage', { static: false }) batchImage: ElementRef;
 
   @Input() canEdit: boolean = false;
@@ -98,15 +107,27 @@ export class CommentComponentV2 implements OnChanges {
     private timeDiffService: TimeDiffService,
     private el: ElementRef,
     private router: Router,
-    protected featuresService: FeaturesService
-  ) {}
+    protected activityService: ActivityService,
+    protected featuresService: FeaturesService,
+    @Inject(PLATFORM_ID) private platformId: Object,
+    configs: ConfigsService
+  ) {
+    this.cdnUrl = configs.get('cdn_url');
+    this.cdnAssetsUrl = configs.get('cdn_assets_url');
+  }
 
   ngOnInit() {
-    this.commentAge$ = this.timeDiffService.source.pipe(
-      map(secondsElapsed => {
-        return (this.comment.time_created - secondsElapsed * 0.01) * 1000;
-      })
-    );
+    if (isPlatformBrowser(this.platformId)) {
+      this.commentAge$ = this.timeDiffService.source.pipe(
+        map(secondsElapsed => {
+          return (this.comment.time_created - secondsElapsed) * 1000;
+        })
+      );
+    }
+
+    if (this.session.getLoggedInUser().guid === this.comment.ownerObj.guid) {
+      this.showMature = true;
+    }
   }
 
   ngAfterViewInit() {
@@ -120,7 +141,9 @@ export class CommentComponentV2 implements OnChanges {
 
   @Input('comment')
   set _comment(value: any) {
-    if (!value) return;
+    if (!value) {
+      return;
+    }
     this.comment = value;
     this.attachment.load(this.comment);
 
@@ -147,7 +170,7 @@ export class CommentComponentV2 implements OnChanges {
       return;
     }
 
-    let data = this.attachment.exportMeta();
+    const data = this.attachment.exportMeta();
     data['comment'] = this.comment.description;
 
     this.editing = false;
@@ -227,7 +250,7 @@ export class CommentComponentV2 implements OnChanges {
     this.triedToPost = false;
 
     this.attachment
-      .remove(file)
+      .remove()
       .then(() => {
         this.canPost = true;
         this.triedToPost = false;
@@ -364,9 +387,22 @@ export class CommentComponentV2 implements OnChanges {
     this.comment.modal_source_url = this.router.url;
 
     this.overlayModal
-      .create(MediaModalComponent, this.comment, {
-        class: 'm-overlayModal--media',
-      })
+      .create(
+        MediaModalComponent,
+        {
+          entity: this.comment,
+        },
+        {
+          class: 'm-overlayModal--media',
+        }
+      )
       .present();
+  }
+
+  /**
+   * Toggles mature visibility.
+   */
+  toggleMatureVisibility() {
+    this.showMature = !this.showMature;
   }
 }

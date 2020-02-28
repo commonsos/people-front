@@ -1,8 +1,5 @@
 import { NgModule } from '@angular/core';
 
-import * as PlotlyJS from 'plotly.js/dist/plotly.js';
-import { PlotlyModule } from 'angular-plotly.js';
-
 import { AdminAnalyticsComponent } from './pages/admin/admin.component';
 import { CommonModule } from '../../common/common.module';
 import { CommonModule as NgCommonModule } from '@angular/common';
@@ -49,33 +46,45 @@ import { ActiveUsersChartComponent } from './components/charts/active-users/acti
 import { Graph } from './graph.component';
 import { PageviewsCardComponent } from './components/cards/pageviews/pageviews.component';
 import { PageviewsChartComponent } from './components/charts/pageviews/pageviews.component';
+import { AnalyticsDashboardComponent } from './v2/dashboard.component';
+import { AnalyticsLayoutChartComponent } from './v2/layouts/layout-chart/layout-chart.component';
+import { AnalyticsLayoutSummaryComponent } from './v2/layouts/layout-summary/layout-summary.component';
+import { AnalyticsMetricsComponent } from './v2/components/metrics/metrics.component';
+import { AnalyticsFiltersComponent } from './v2/components/filters/filters.component';
+import { AnalyticsChartComponent } from './v2/components/chart/chart.component';
+import { AnalyticsTableComponent } from './v2/components/table/table.component';
+import { AnalyticsDashboardService } from './v2/dashboard.service';
+import { SearchModule } from '../search/search.module';
+import { AnalyticsSearchComponent } from './v2/components/search/search.component';
+import { FormsModule } from '@angular/forms';
+import { AnalyticsSearchSuggestionsComponent } from './v2/components/search-suggestions/search-suggestions.component';
+import { AnalyticsBenchmarkComponent } from './v2/components/benchmark/benchmark.component';
 
+import * as PlotlyJS from 'plotly.js/dist/plotly-basic.min.js';
+import { PlotlyModule } from 'angular-plotly.js';
+import { ChartV2Component } from './components/chart-v2/chart-v2.component';
 PlotlyModule.plotlyjs = PlotlyJS;
 
 const routes: Routes = [
   {
-    path: 'analytics',
+    path: '',
     component: AnalyticsComponent,
     children: [
-      { path: '', redirectTo: 'channel', pathMatch: 'full' },
+      { path: '', redirectTo: 'dashboard/traffic', pathMatch: 'full' },
       {
-        path: 'channel',
-        component: ChannelAnalyticsComponent,
-        children: [
-          { path: '', redirectTo: 'activity', pathMatch: 'full' },
-          { path: 'activity', component: ChannelGeneralAnalyticsComponent },
-          { path: 'reach', component: ChannelReachAnalyticsComponent },
-        ],
+        path: 'dashboard',
+        redirectTo: 'dashboard/traffic',
+        pathMatch: 'full',
       },
       {
-        path: 'admin',
-        component: AdminAnalyticsComponent,
-        children: [
-          { path: '', redirectTo: 'network', pathMatch: 'full' },
-          { path: 'network', component: SiteNetworkActivityAnalyticsComponent },
-          { path: 'token', component: SiteTokenTransactionsAnalyticsComponent },
-          // { path: 'plus', component: OffChainBoostsCardComponent},
-        ],
+        path: 'dashboard/:category',
+        component: AnalyticsDashboardComponent,
+        data: {
+          title: 'Analytics',
+          description:
+            'Track your traffic, earnings, engagement and trending analytics',
+          ogImage: '/assets/photos/network.jpg',
+        },
       },
     ],
   },
@@ -87,6 +96,8 @@ const routes: Routes = [
     CommonModule,
     RouterModule.forChild(routes),
     PlotlyModule,
+    SearchModule,
+    FormsModule,
   ],
   exports: [
     AdminAnalyticsComponent,
@@ -138,7 +149,18 @@ const routes: Routes = [
     PageviewsChartComponent,
     PageviewsCardComponent,
     Graph,
+    AnalyticsDashboardComponent,
+    AnalyticsLayoutChartComponent,
+    AnalyticsLayoutSummaryComponent,
+    AnalyticsMetricsComponent,
+    AnalyticsFiltersComponent,
+    AnalyticsChartComponent,
+    AnalyticsTableComponent,
+    AnalyticsSearchComponent,
+    AnalyticsSearchSuggestionsComponent,
+    AnalyticsBenchmarkComponent,
+    ChartV2Component,
   ],
-  providers: [],
+  providers: [AnalyticsDashboardService],
 })
 export class AnalyticsModule {}

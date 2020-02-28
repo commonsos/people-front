@@ -68,6 +68,7 @@ m-wire-channel {
           color: themed($m-blue) !important;
         }
       }
+
       .m-wire-channel--totals-period {
         font-size: 11px;
       }
@@ -77,6 +78,7 @@ m-wire-channel {
   .m-wire-channel--rewards {
     padding-top: 0;
     box-sizing: border-box;
+
     tr {
       cursor: pointer;
     }
@@ -86,7 +88,8 @@ m-wire-channel {
   .m-wire-channel--description-editor {
     line-height: 1.3;
     letter-spacing: 0.5px;
-    margin: 0 0 ($minds-padding * 2);
+    margin: 0;
+    padding: $minds-padding * 2;
   }
 
   .m-wire-channel--description {
@@ -181,6 +184,7 @@ m-wire-channel {
   .m-wire-channel--reward-amount,
   .m-wire-channel--reward-description {
     font-weight: 400;
+
     span {
       padding-right: $minds-padding;
     }
@@ -272,6 +276,13 @@ m-wire-channel {
       font-size: 8px;
       font-weight: 500;
     }
+  }
+
+  .m-wire-channel--support {
+    font-size: 14px;
+    line-height: 30px;
+    font-weight: bold;
+    cursor: pointer;
   }
 
   m--crypto-token-symbol {

@@ -3,7 +3,6 @@ import { ActivatedRoute, Router } from '@angular/router';
 
 import { Subscription, Observable } from 'rxjs';
 
-import { MindsTitle } from '../../../services/ux/title';
 import { ACCESS, LICENSES } from '../../../services/list-options';
 import { Client, Upload } from '../../../services/api';
 import { Session } from '../../../services/session';
@@ -13,9 +12,9 @@ import { HashtagsSelectorComponent } from '../../hashtags/selector/selector.comp
 import { Tag } from '../../hashtags/types/tag';
 import { InMemoryStorageService } from '../../../services/in-memory-storage.service';
 import { DialogService } from '../../../common/services/confirm-leave-dialog.service';
+import { ConfigsService } from '../../../common/services/configs.service';
 
 @Component({
-  moduleId: module.id,
   selector: 'minds-blog-edit',
   host: {
     class: 'm-blog',
@@ -23,16 +22,17 @@ import { DialogService } from '../../../common/services/confirm-leave-dialog.ser
   templateUrl: 'edit.html',
 })
 export class BlogEdit {
-  minds = window.Minds;
+  readonly cdnUrl: string;
 
   guid: string;
   blog: any = {
     guid: 'new',
     title: '',
     description: '<p><br></p>',
-    time_created: Date.now(),
+    time_created: Math.floor(Date.now() / 1000),
     access_id: 2,
     tags: [],
+    nsfw: [],
     license: 'attribution-sharealike-cc',
     fileKey: 'header',
     mature: 0,
@@ -69,17 +69,19 @@ export class BlogEdit {
   @ViewChild('hashtagsSelector', { static: false })
   hashtagsSelector: HashtagsSelectorComponent;
 
+  protected time_created: any;
+
   constructor(
     public session: Session,
     public client: Client,
     public upload: Upload,
     public router: Router,
     public route: ActivatedRoute,
-    public title: MindsTitle,
     protected inMemoryStorageService: InMemoryStorageService,
-    private dialogService: DialogService
+    private dialogService: DialogService,
+    configs: ConfigsService
   ) {
-    this.getCategories();
+    this.cdnUrl = configs.get('cdn_url');
 
     window.addEventListener(
       'attachment-preview-loaded',
@@ -106,8 +108,6 @@ export class BlogEdit {
       return;
     }
 
-    this.title.setTitle('New Blog');
-
     this.paramsSubscription = this.route.params.subscribe(params => {
       if (params['guid']) {
         this.guid = params['guid'];
@@ -121,6 +121,7 @@ export class BlogEdit {
           license: '',
           fileKey: 'header',
           mature: 0,
+          nsfw: [],
           monetized: 0,
           published: 0,
           wire_threshold: null,
@@ -141,8 +142,10 @@ export class BlogEdit {
         this.existingBanner = false;
 
         if (this.guid !== 'new') {
+          this.editing = true;
           this.load();
         } else {
+          this.editing = false;
           const description: string = this.inMemoryStorageService.once(
             'newBlogContent'
           );
@@ -163,7 +166,7 @@ export class BlogEdit {
   }
 
   canDeactivate(): Observable<boolean> | boolean {
-    if (!this.editing || !window.Minds.user) {
+    if (!this.editing || !this.session.getLoggedInUser()) {
       return true;
     }
 
@@ -176,26 +179,11 @@ export class BlogEdit {
     }
   }
 
-  getCategories() {
-    this.categories = [];
-
-    for (let category in window.Minds.categories) {
-      this.categories.push({
-        id: category,
-        label: window.Minds.categories[category],
-        selected: false,
-      });
-    }
-
-    this.categories.sort((a, b) => (a.label > b.label ? 1 : -1));
-  }
-
   load() {
     this.client.get('api/v1/blog/' + this.guid, {}).then((response: any) => {
       if (response.blog) {
         this.blog = response.blog;
         this.guid = response.blog.guid;
-        this.title.setTitle(this.blog.title);
 
         if (this.blog.thumbnail_src) this.existingBanner = true;
         //this.hashtagsSelector.setTags(this.blog.tags);
@@ -207,6 +195,9 @@ export class BlogEdit {
         if (!this.blog.category) this.blog.category = '';
 
         if (!this.blog.license) this.blog.license = '';
+
+        this.blog.time_created =
+          response.blog.time_created || Math.floor(Date.now() / 1000);
       }
     });
   }
@@ -234,6 +225,10 @@ export class BlogEdit {
     return true;
   }
 
+  posterDateSelectorError(msg) {
+    this.error = msg;
+  }
+
   save() {
     if (!this.canSave) return;
 
@@ -245,9 +240,12 @@ export class BlogEdit {
       const blog = Object.assign({}, this.blog);
 
       // only allowed props
+      blog.nsfw = this.blog.nsfw;
       blog.mature = blog.mature ? 1 : 0;
       blog.monetization = blog.monetization ? 1 : 0;
       blog.monetized = blog.monetized ? 1 : 0;
+      blog.time_created = blog.time_created || Math.floor(Date.now() / 1000);
+
       this.editing = false;
       this.inProgress = true;
       this.canSave = false;
@@ -258,6 +256,7 @@ export class BlogEdit {
             .then((response: any) => {
               this.inProgress = false;
               this.canSave = true;
+              this.blog.time_created = null;
 
               if (response.status !== 'success') {
                 this.error = response.message;
@@ -270,6 +269,7 @@ export class BlogEdit {
               );
             })
             .catch(e => {
+              this.error = e;
               this.canSave = true;
               this.inProgress = false;
             });
@@ -327,5 +327,30 @@ export class BlogEdit {
     } else {
       this.blog.categories.splice(this.blog.categories.indexOf(category.id), 1);
     }
+  }
+
+  onTimeCreatedChange(newDate) {
+    this.blog.time_created = newDate;
+  }
+
+  getTimeCreated() {
+    return this.blog.time_created > Math.floor(Date.now() / 1000)
+      ? this.blog.time_created
+      : null;
+  }
+
+  checkTimePublished() {
+    return (
+      !this.blog.time_published ||
+      this.blog.time_published > Math.floor(Date.now() / 1000)
+    );
+  }
+
+  /**
+   * Sets this blog NSFW
+   * @param { array } nsfw - Numerical indexes for reasons in an array e.g. [1, 2].
+   */
+  onNSFWSelections(nsfw) {
+    this.blog.nsfw = nsfw.map(reason => reason.value);
   }
 }

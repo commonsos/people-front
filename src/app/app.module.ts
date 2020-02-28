@@ -3,26 +3,22 @@ import {
   NgModule,
   Injectable,
   ErrorHandler,
+  APP_INITIALIZER,
+  APP_BOOTSTRAP_LISTENER,
 } from '@angular/core';
-import { BrowserModule } from '@angular/platform-browser';
+import {
+  BrowserModule,
+  BrowserTransferStateModule,
+} from '@angular/platform-browser';
+// import { TransferHttpCacheModule } from '@nguniversal/common';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { CaptchaModule } from './modules/captcha/captcha.module';
-import { environment } from '../environments/environment';
 
 import { Minds } from './app.component';
 
-import {
-  MINDS_APP_ROUTING_DECLARATIONS,
-  MindsAppRoutes,
-  MindsAppRoutingProviders,
-} from './router/app';
-
-import { MINDS_DECLARATIONS } from './declarations';
-import { MINDS_PLUGIN_DECLARATIONS } from './plugin-declarations';
 import { MINDS_PROVIDERS } from './services/providers';
-import { MINDS_PLUGIN_PROVIDERS } from './plugin-providers';
 
 import { CommonModule } from './common/common.module';
 import { MonetizationModule } from './modules/monetization/monetization.module';
@@ -52,7 +48,6 @@ import { BanModule } from './modules/ban/ban.module';
 import { BlogModule } from './modules/blogs/blog.module';
 import { SearchModule } from './modules/search/search.module';
 import { MessengerModule } from './modules/messenger/messenger.module';
-import { HomepageModule } from './modules/homepage/homepage.module';
 import { NewsfeedModule } from './modules/newsfeed/newsfeed.module';
 import { MediaModule } from './modules/media/media.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -67,15 +62,18 @@ import { MobileModule } from './modules/mobile/mobile.module';
 import { IssuesModule } from './modules/issues/issues.module';
 import { CanaryModule } from './modules/canary/canary.module';
 import { HttpClientModule } from '@angular/common/http';
-import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { ProModule } from './modules/pro/pro.module';
+import { ChannelContainerModule } from './modules/channel-container/channel-container.module';
+import { UpgradesModule } from './modules/upgrades/upgrades.module';
 
 import * as Sentry from '@sentry/browser';
-
-Sentry.init({
-  dsn: 'https://3f786f8407e042db9053434a3ab527a2@sentry.io/1538008', // TODO: do not hardcard
-  release: environment.version,
-  environment: (<any>window.Minds).environment || 'development',
-});
+import { CookieModule } from '@gorniv/ngx-universal';
+import { HomepageModule } from './modules/homepage/homepage.module';
+import { OnboardingV2Module } from './modules/onboarding-v2/onboarding.module';
+import { ConfigsService } from './common/services/configs.service';
+import { AppRoutingModule } from './app-routing.module';
+import { Pages } from './controllers/pages/pages';
+import { LayoutModule } from './modules/layout/layout.module';
 
 @Injectable()
 export class SentryErrorHandler implements ErrorHandler {
@@ -83,27 +81,26 @@ export class SentryErrorHandler implements ErrorHandler {
   handleError(error) {
     // const eventId = Sentry.captureException(error.originalError || error);
     // Sentry.showReportDialog({ eventId });
+    console.error(error);
   }
 }
 
 @NgModule({
   bootstrap: [Minds],
-  declarations: [
-    Minds,
-    MINDS_APP_ROUTING_DECLARATIONS,
-    MINDS_DECLARATIONS,
-    MINDS_PLUGIN_DECLARATIONS,
-  ],
+  declarations: [Minds, Pages],
   imports: [
-    BrowserModule,
-    BrowserAnimationsModule,
+    BrowserModule.withServerTransition({ appId: 'm-app' }),
+    BrowserTransferStateModule,
+    CookieModule.forRoot(),
+    // TransferHttpCacheModule,
+    //BrowserAnimationsModule,
     ReactiveFormsModule,
     FormsModule,
     HttpClientModule,
-    RouterModule.forRoot(MindsAppRoutes, { onSameUrlNavigation: 'reload' }),
     CaptchaModule,
+    LayoutModule,
     CommonModule,
-    AnalyticsModule,
+    ProModule, // NOTE: Pro Module should be declared _BEFORE_ anything else
     WalletModule,
     //CheckoutModule,
     MonetizationModule,
@@ -122,6 +119,7 @@ export class SentryErrorHandler implements ErrorHandler {
     PaymentsModule,
     MindsFormsModule,
     OnboardingModule,
+    OnboardingV2Module,
     NotificationModule,
     GroupsModule,
     BlogModule,
@@ -142,15 +140,23 @@ export class SentryErrorHandler implements ErrorHandler {
     MobileModule,
     IssuesModule,
     CanaryModule,
+    ChannelsModule,
+    UpgradesModule,
 
     //last due to :username route
-    ChannelsModule,
+    AppRoutingModule,
+    ChannelContainerModule,
   ],
   providers: [
     { provide: ErrorHandler, useClass: SentryErrorHandler },
-    MindsAppRoutingProviders,
     MINDS_PROVIDERS,
-    MINDS_PLUGIN_PROVIDERS,
+    ConfigsService,
+    {
+      provide: APP_INITIALIZER,
+      useFactory: configs => () => configs.loadFromRemote(),
+      deps: [ConfigsService],
+      multi: true,
+    },
   ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })

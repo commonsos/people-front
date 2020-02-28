@@ -7,6 +7,8 @@ import {
   Input,
   Renderer,
   ViewChild,
+  OnInit,
+  OnDestroy,
 } from '@angular/core';
 
 import { Client } from '../../../services/api/client';
@@ -15,6 +17,8 @@ import { Upload } from '../../../services/api/upload';
 import { AttachmentService } from '../../../services/attachment';
 import { Textarea } from '../../../common/components/editors/textarea.component';
 import { SocketsService } from '../../../services/sockets';
+import { ActivityService } from '../../../common/services/activity.service';
+import { ConfigsService } from '../../../common/services/configs.service';
 
 @Component({
   moduleId: module.id,
@@ -27,17 +31,10 @@ import { SocketsService } from '../../../services/sockets';
     'scrollable',
   ],
   templateUrl: 'list.component.html',
-  providers: [
-    {
-      provide: AttachmentService,
-      useFactory: AttachmentService._,
-      deps: [Session, Client, Upload],
-    },
-  ],
+  providers: [AttachmentService, ActivityService],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CommentsListComponent {
-  minds;
+export class CommentsListComponent implements OnInit, OnDestroy {
   object;
   guid: string = '';
   parent: any;
@@ -71,7 +68,6 @@ export class CommentsListComponent {
   socketSubscriptions: any = {
     comment: null,
   };
-
   error: string;
 
   @Input() conversation: boolean = false;
@@ -91,21 +87,26 @@ export class CommentsListComponent {
     public attachment: AttachmentService,
     public sockets: SocketsService,
     private renderer: Renderer,
-    private cd: ChangeDetectorRef
-  ) {
-    this.minds = window.Minds;
-  }
+    private cd: ChangeDetectorRef,
+    public activityService: ActivityService,
+    private configs: ConfigsService
+  ) {}
 
   set _object(value: any) {
     this.object = value;
     this.guid = this.object.guid;
-    if (this.object.entity_guid) this.guid = this.object.entity_guid;
+    if (this.object.entity_guid) {
+      this.guid = this.object.entity_guid;
+    }
     this.parent = this.object;
   }
 
   set _reversed(value: boolean) {
-    if (value) this.reversed = true;
-    else this.reversed = false;
+    if (value) {
+      this.reversed = true;
+    } else {
+      this.reversed = false;
+    }
   }
 
   ngOnInit() {
@@ -165,7 +166,7 @@ export class CommentsListComponent {
         } else {
           this.ascendingInProgress = false;
         }
-        //this.moreDescendingData = true;
+        // this.moreDescendingData = true;
 
         if (!response.comments) {
           if (descending) {
@@ -178,8 +179,8 @@ export class CommentsListComponent {
           return false;
         }
 
-        let el = this.scrollView.nativeElement;
-        let previousScrollHeightMinusTop = el.scrollHeight - el.scrollTop;
+        const el = this.scrollView.nativeElement;
+        const previousScrollHeightMinusTop = el.scrollHeight - el.scrollTop;
 
         if (descending) {
           this.comments = response.comments.concat(this.comments);
@@ -250,7 +251,7 @@ export class CommentsListComponent {
 
     this.overscrollTimer = setTimeout(() => {
       if (this.overscrollAmount < -75) {
-        //75px
+        // 75px
         this.autoloadPrevious();
       }
 
@@ -319,13 +320,14 @@ export class CommentsListComponent {
             }
 
             // if the list is scrolled to the bottom
-            let scrolledToBottom =
+            const scrolledToBottom =
               this.scrollView.nativeElement.scrollTop +
                 this.scrollView.nativeElement.clientHeight >=
               this.scrollView.nativeElement.scrollHeight;
 
-            if (response.comments[0]._guid == guid)
+            if (response.comments[0]._guid == guid) {
               this.comments.push(response.comments[0]);
+            }
 
             this.detectChanges();
 
@@ -352,14 +354,14 @@ export class CommentsListComponent {
       ) {
         return;
       }
-      let key = 'thumbs:' + direction + ':count';
+      const key = 'thumbs:' + direction + ':count';
       for (let i = 0; i < this.comments.length; i++) {
         if (this.comments[i]._guid == guid) {
           this.comments[i][key]++;
           this.detectChanges();
         }
       }
-      //this.comments = this.comments.slice(0);
+      // this.comments = this.comments.slice(0);
       this.detectChanges();
     });
 
@@ -415,11 +417,11 @@ export class CommentsListComponent {
 
     this.content = this.content.trim();
 
-    let data = this.attachment.exportMeta();
+    const data = this.attachment.exportMeta();
     data['comment'] = this.content;
     data['parent_path'] = this.parent.child_path || '0:0:0';
 
-    let newLength = this.comments.push({
+    const newLength = this.comments.push({
         // Optimistic
         description: this.content,
         guid: 0,
@@ -438,7 +440,7 @@ export class CommentsListComponent {
     this.commentsScrollEmitter.emit('bottom');
 
     try {
-      let response: any = await this.client.post(
+      const response: any = await this.client.post(
         'api/v1/comments/' + this.guid,
         data
       );
@@ -505,7 +507,7 @@ export class CommentsListComponent {
     this.triedToPost = false;
 
     this.attachment
-      .remove(file)
+      .remove()
       .then(() => {
         this.canPost = true;
         this.triedToPost = false;
@@ -545,11 +547,13 @@ export class CommentsListComponent {
 
   getAvatar() {
     if (this.session.isLoggedIn()) {
-      return `${this.minds.cdn_url}icon/${
+      return `${this.configs.get('cdn_url')}icon/${
         this.session.getLoggedInUser().guid
       }/small/${this.session.getLoggedInUser().icontime}`;
     } else {
-      return `${this.minds.cdn_assets_url}assets/avatars/default-small.png`;
+      return `${this.configs.get(
+        'cdn_assets_url'
+      )}assets/avatars/default-small.png`;
     }
   }
 

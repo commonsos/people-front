@@ -9,11 +9,14 @@ import {
   OnInit,
   SkipSelf,
   ViewChild,
+  Inject,
+  PLATFORM_ID,
 } from '@angular/core';
 import { FeaturedContentService } from './featured-content.service';
 import { DynamicHostDirective } from '../../directives/dynamic-host.directive';
 import { Activity } from '../../../modules/legacy/components/cards/activity/activity';
 import { ClientMetaService } from '../../services/client-meta.service';
+import { isPlatformBrowser } from '@angular/common';
 
 @Component({
   selector: 'm-featured-content',
@@ -34,13 +37,14 @@ export class FeaturedContentComponent implements OnInit {
     protected componentFactoryResolver: ComponentFactoryResolver,
     protected cd: ChangeDetectorRef,
     protected clientMetaService: ClientMetaService,
-    @SkipSelf() injector: Injector
+    @SkipSelf() protected injector: Injector,
+    @Inject(PLATFORM_ID) private platformId: Object
   ) {
     this.clientMetaService.inherit(injector).setMedium('featured-content');
   }
 
   ngOnInit() {
-    this.load();
+    if (isPlatformBrowser(this.platformId)) this.load();
   }
 
   async load() {
@@ -81,7 +85,11 @@ export class FeaturedContentComponent implements OnInit {
 
       const componentRef: ComponentRef<
         any
-      > = this.dynamicHost.viewContainerRef.createComponent(componentFactory);
+      > = this.dynamicHost.viewContainerRef.createComponent(
+        componentFactory,
+        void 0,
+        this.injector
+      );
       injector.call(this, componentRef, this.entity);
     }
   }

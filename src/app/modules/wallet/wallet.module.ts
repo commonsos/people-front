@@ -33,6 +33,7 @@ import { WalletBalanceTokensComponent } from './balances/tokens/balance.componen
 import { WalletBalanceRewardsComponent } from './balances/rewards/balance.component';
 import { WalletUSDComponent } from './usd/usd.component';
 import { WalletUSDEarningsComponent } from './usd/earnings.component';
+import { WalletUSDTransactionsComponent } from './usd/transactions.component';
 import { WalletUSDPayoutsComponent } from './usd/payouts.component';
 import { WalletUSDSettingsComponent } from './usd/settings.component';
 import { WalletUSDOnboardingComponent } from './usd/onboarding/onboarding.component';
@@ -44,48 +45,95 @@ import { WalletTokenContributionsOverviewComponent } from './tokens/contribution
 import { WalletTokenContributionsChartComponent } from './tokens/contributions/chart.component';
 import { WalletToken101Component } from './tokens/101/101.component';
 import { ModalsModule } from '../modals/modals.module';
-import { WalletTokenTestnetComponent } from './tokens/testnet/testnet.component';
 import { ReferralsModule } from './tokens/referrals/referrals.module';
 import { ReferralsComponent } from './tokens/referrals/referrals.component';
+import { WalletUSDBalanceComponent } from './usd/balance.component';
 
 const walletRoutes: Routes = [
   {
     path: 'wallet',
     component: WalletComponent,
+    data: {
+      title: 'Wallet',
+      description: 'Manage all of your transactions and earnings on Minds',
+      ogImage: '/assets/photos/graph.jpg',
+    },
     children: [
       { path: '', redirectTo: 'tokens', pathMatch: 'full' },
       { path: 'overview', redirectTo: 'tokens', pathMatch: 'full' },
       { path: '101', redirectTo: 'tokens/101', pathMatch: 'full' },
-      // { path: 'overview', component: WalletOverviewComponent },
-      // { path: 'points', component: WalletPointsComponent },
-      // { path: 'points/purchase', component: WalletPurchaseComponent },
       {
         path: 'tokens',
         component: WalletTokensComponent,
+        data: {
+          title: 'Tokens',
+          description: 'Keep track of your tokens',
+          ogImage: '/assets/photos/graph.jpg',
+        },
         children: [
           { path: '', redirectTo: 'contributions', pathMatch: 'full' },
           {
             path: 'transactions/:contract',
             component: WalletTokenTransactionsComponent,
           },
-          { path: 'transactions', component: WalletTokenTransactionsComponent },
-          { path: 'withdraw', component: WalletTokenWithdrawComponent },
+          {
+            path: 'transactions',
+            component: WalletTokenTransactionsComponent,
+            data: {
+              title: 'Transactions Ledger',
+            },
+          },
+          {
+            path: 'withdraw',
+            component: WalletTokenWithdrawComponent,
+            data: {
+              title: 'Withdraw',
+            },
+          },
           { path: 'contributions/join', component: WalletTokenJoinComponent },
           {
             path: 'contributions',
             component: WalletTokenContributionsComponent,
+            data: {
+              title: 'Contributions',
+            },
           },
-          { path: 'addresses', component: WalletTokenAddressesComponent },
-          { path: '101', component: WalletToken101Component },
-          { path: 'testnet', component: WalletTokenTestnetComponent },
-          { path: 'referrals', component: ReferralsComponent },
+          {
+            path: 'addresses',
+            component: WalletTokenAddressesComponent,
+            data: {
+              title: 'Token / ETH Addresses',
+            },
+          },
+          {
+            path: '101',
+            component: WalletToken101Component,
+            data: {
+              title: 'Token 101',
+              description: 'Everything you need to know about Minds Tokens',
+              ogImage: 'assets/photos/canyon.jpg',
+            },
+          },
+          {
+            path: 'referrals',
+            component: ReferralsComponent,
+            data: {
+              title: 'Referrals',
+            },
+          },
         ],
       },
       {
         path: 'usd',
         component: WalletUSDComponent,
+        data: {
+          title: 'USD',
+          description: 'Keep track of your USD transactions',
+          ogImage: '/assets/photos/graph.jpg',
+        },
         children: [
-          { path: '', redirectTo: 'earnings', pathMatch: 'full' },
+          { path: '', redirectTo: 'transactions', pathMatch: 'full' },
+          { path: 'transactions', component: WalletUSDTransactionsComponent },
           { path: 'earnings', component: WalletUSDEarningsComponent },
           { path: 'payouts', component: WalletUSDPayoutsComponent },
           { path: 'settings', component: WalletUSDSettingsComponent },
@@ -139,6 +187,7 @@ const walletRoutes: Routes = [
     WalletBalanceRewardsComponent,
     WalletUSDComponent,
     WalletUSDEarningsComponent,
+    WalletUSDTransactionsComponent,
     WalletUSDPayoutsComponent,
     WalletUSDSettingsComponent,
     WalletUSDOnboardingComponent,
@@ -147,7 +196,7 @@ const walletRoutes: Routes = [
     WalletTokenContributionsOverviewComponent,
     WalletTokenContributionsChartComponent,
     WalletToken101Component,
-    WalletTokenTestnetComponent,
+    WalletUSDBalanceComponent,
   ],
   exports: [
     WalletComponent,
@@ -160,6 +209,7 @@ const walletRoutes: Routes = [
     WalletFlyoutComponent,
     WalletBalanceUSDComponent,
     WalletBalanceTokensComponent,
+    WalletUSDBalanceComponent,
   ],
   entryComponents: [WalletComponent, WalletUSDTermsComponent],
 })

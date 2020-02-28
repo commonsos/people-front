@@ -1,14 +1,8 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject } from 'rxjs';
 import { first } from 'rxjs/operators';
 import { Client } from '../../services/api';
 import { BlockListService } from './block-list.service';
-
-import MindsClientHttpAdapter from '../../lib/minds-sync/adapters/MindsClientHttpAdapter.js';
-import browserStorageAdapterFactory from '../../helpers/browser-storage-adapter-factory';
-import EntitiesSync from '../../lib/minds-sync/services/EntitiesSync.js';
-import AsyncStatus from '../../helpers/async-status';
-import normalizeUrn from '../../helpers/normalize-urn';
 
 type EntityObservable = BehaviorSubject<Object>;
 type EntityObservables = Map<string, EntityObservable>;
@@ -17,6 +11,7 @@ type EntityObservables = Map<string, EntityObservable>;
 export class EntitiesService {
   entities: EntityObservables = new Map<string, EntityObservable>();
   castToActivites: boolean = false;
+  exportUserCounts: boolean = false;
 
   constructor(
     protected client: Client,
@@ -64,8 +59,17 @@ export class EntitiesService {
     }
 
     for (const feedItem of feed) {
-      if (!blockedGuids || blockedGuids.indexOf(feedItem.owner_guid) < 0)
-        entities.push(this.entities.get(feedItem.urn));
+      if (
+        this.entities.has(feedItem.urn) &&
+        (!blockedGuids || blockedGuids.indexOf(feedItem.owner_guid) < 0)
+      ) {
+        const entity = this.entities.get(feedItem.urn);
+        try {
+          if (await entity.pipe(first()).toPromise()) {
+            entities.push(entity);
+          }
+        } catch (err) {}
+      }
     }
 
     return entities;
@@ -108,6 +112,16 @@ export class EntitiesService {
   }
 
   /**
+   * Cast to activities or not
+   * @param cast boolean
+   * @return EntitiesService
+   */
+  setExportUserCounts(value: boolean): EntitiesService {
+    this.exportUserCounts = value;
+    return this;
+  }
+
+  /**
    * Fetch entities
    * @param urns string[]
    * @return []
@@ -117,6 +131,7 @@ export class EntitiesService {
       const response: any = await this.client.get('api/v2/entities/', {
         urns,
         as_activities: this.castToActivites ? 1 : 0,
+        export_user_counts: this.exportUserCounts,
       });
 
       if (!response.entities.length) {
