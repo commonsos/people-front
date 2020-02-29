@@ -8004,7 +8004,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="M__COMMON__START_A_CHANNEL" datatype="html">
-        <source>Not on Minds? Start a channel</source>
+        <source>Not on Commons? Start a channel</source>
         <context-group purpose="location">
           <context context-type="sourcefile">app/modules/auth/login.component.ts</context>
           <context context-type="linenumber">9</context>

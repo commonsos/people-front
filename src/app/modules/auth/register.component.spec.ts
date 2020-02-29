@@ -91,7 +91,7 @@ describe('RegisterComponent', () => {
   xit('should have a register prompt and the form', () => {
     const h3: DebugElement = fixture.debugElement.query(By.css('h3'));
     expect(h3).not.toBeNull();
-    expect(h3.nativeElement.textContent).toBe('Not on Minds? Start a channel');
+    expect(h3.nativeElement.textContent).toBe('Not on Commons? Start a channel');
 
     expect(
       fixture.debugElement.query(By.css('minds-form-register'))
