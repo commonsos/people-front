@@ -123,26 +123,6 @@
 
     <li
       class="m-dropdownList__item m-user-menuDropdown__Item"
-      (click)="closeMenu()"
-    >
-      <a routerLink="/mobile">
-        <i class="material-icons">phone_iphone</i>
-        <span i18n>Mobile App</span>
-      </a>
-    </li>
-
-    <li
-      class="m-dropdownList__item m-user-menuDropdown__Item"
-      (click)="closeMenu()"
-    >
-      <a target="_blank" href="https://www.teespring.com/stores/minds">
-        <i class="material-icons">shopping_cart</i>
-        <span i18n>Store</span>
-      </a>
-    </li>
-
-    <li
-      class="m-dropdownList__item m-user-menuDropdown__Item"
       *ngIf="getCurrentUser()"
       (click)="closeMenu()"
     >
